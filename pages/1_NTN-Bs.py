@@ -70,9 +70,15 @@ if not df_tesouro.empty:
         st.subheader("Spread de Juros: Brasil vs. EUA")
         st.info("Diferença entre a taxa da NTN-B de ~10 anos e o título americano de 10 anos.")
         
-        # Lembre-se de configurar este Secret no Streamlit Cloud!
-        FRED_API_KEY = st.secrets.get("FRED_API_KEY", "d78668ca6fc142a1248f7cb9132916b0") 
+        # Em pages/6_Internacional.py e pages/1_NTN-Bs.py
         
+        FRED_API_KEY = st.secrets.get("FRED_API_KEY")
+        
+        if not FRED_API_KEY:
+            st.error("Chave da API do FRED não configurada. Por favor, configure o secret 'FRED_API_KEY'.")
+            st.stop() # Impede a execução do resto da página
+        
+        # O restante do código que usa a chave...        
         df_fred_br_tab = carregar_dados_fred(FRED_API_KEY, {'DGS10': 'Juros 10 Anos EUA'})
         if not df_fred_br_tab.empty:
             df_juro_br = calcular_juro_10a_br(df_tesouro)
