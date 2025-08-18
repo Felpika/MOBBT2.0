@@ -11,7 +11,15 @@ st.header("Monitor de Indicadores Internacionais (FRED)")
 st.markdown("---")
 
 # Lembre-se de configurar este Secret no Streamlit Cloud!
-FRED_API_KEY = st.secrets.get("FRED_API_KEY", "d78668ca6fc142a1248f7cb9132916b0")
+# Em pages/6_Internacional.py e pages/1_NTN-Bs.py
+
+FRED_API_KEY = st.secrets.get("FRED_API_KEY")
+
+if not FRED_API_KEY:
+    st.error("Chave da API do FRED não configurada. Por favor, configure o secret 'FRED_API_KEY'.")
+    st.stop() # Impede a execução do resto da página
+
+# O restante do código que usa a chave...
 
 INDICADORES_FRED = {
     'T10Y2Y': 'Spread da Curva de Juros dos EUA (10 Anos vs 2 Anos)',
