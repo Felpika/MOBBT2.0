@@ -6,9 +6,10 @@ import plotly.express as px
 from utils.tesouro_utils import (
     obter_dados_tesouro,
     calcular_inflacao_implicita,
-    calcular_juro_10a_br,
+    calcular_juro_real_10a_br,  # Renomeada
+    calcular_juro_prefixado_10a_br, # Nova
     gerar_grafico_ntnb_multiplos_vencimentos,
-    gerar_grafico_juro_10a_br,
+    gerar_grafico_juro_prefixado_10a_br, # Nova
 )
 from utils.internacional_utils import carregar_dados_fred, gerar_grafico_spread_br_eua
 
@@ -69,16 +70,16 @@ if not df_tesouro.empty:
             st.warning("Não há pares de títulos para calcular a inflação implícita hoje.")
             
     with col2:
-        st.subheader("Juro Real de 10 Anos (NTN-B)")
-        df_juro_br = calcular_juro_10a_br(df_tesouro)
-        if not df_juro_br.empty:
-            fig_juro_10a = gerar_grafico_juro_10a_br(df_juro_br)
+        st.subheader("Juro Prefixado de ~10 Anos")
+        df_juro_prefixado_br = calcular_juro_prefixado_10a_br(df_tesouro)
+        if not df_juro_prefixado_br.empty:
+            fig_juro_10a = gerar_grafico_juro_prefixado_10a_br(df_juro_prefixado_br)
             st.plotly_chart(fig_juro_10a, use_container_width=True, config={'modeBarButtonsToRemove': ['autoscale']})
         else:
-            st.warning("Não foi possível calcular a série de juros de 10 anos.")
+            st.warning("Não foi possível calcular a série de juros prefixados de 10 anos.")
 
     with col3:
-        st.subheader("Spread de Juros: Brasil vs. EUA")
+        st.subheader("Spread Juro Real: Brasil vs. EUA")
         st.info("Diferença entre a taxa da NTN-B de ~10 anos e o título americano de 10 anos.")
         
         FRED_API_KEY = st.secrets.get("FRED_API_KEY")
@@ -89,12 +90,13 @@ if not df_tesouro.empty:
         
         df_fred_br_tab = carregar_dados_fred(FRED_API_KEY, {'DGS10': 'Juros 10 Anos EUA'})
         if not df_fred_br_tab.empty:
-            df_juro_br_spread = calcular_juro_10a_br(df_tesouro)
+            # Usando a função correta para o juro REAL aqui
+            df_juro_br_spread = calcular_juro_real_10a_br(df_tesouro) 
             if not df_juro_br_spread.empty:
                 fig_spread_br_eua = gerar_grafico_spread_br_eua(df_juro_br_spread, df_fred_br_tab)
                 st.plotly_chart(fig_spread_br_eua, use_container_width=True, config={'modeBarButtonsToRemove': ['autoscale']})
             else:
-                st.warning("Não foi possível calcular a série de juros de 10 anos para o Brasil.")
+                st.warning("Não foi possível calcular a série de juros reais de 10 anos para o Brasil.")
         else:
             st.warning("Não foi possível carregar os dados de juros dos EUA.")
 else:
