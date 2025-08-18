@@ -1,0 +1,11 @@
+# requirements.txt
+streamlit
+pandas
+numpy
+plotly
+yfinance
+python-bcb
+fredapi
+textblob
+openpyxl
+streamlit-option-menu
