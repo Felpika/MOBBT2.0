@@ -8,6 +8,7 @@ from utils.tesouro_utils import (
     calcular_inflacao_implicita,
     calcular_juro_10a_br,
     gerar_grafico_ntnb_multiplos_vencimentos,
+    gerar_grafico_juro_10a_br,
 )
 from utils.internacional_utils import carregar_dados_fred, gerar_grafico_spread_br_eua
 
@@ -56,8 +57,8 @@ if not df_tesouro.empty:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    bottom_left, bottom_right = st.columns((1, 1))
-    with bottom_left:
+    col1, col2, col3 = st.columns(3)
+    with col1:
         st.subheader("Inflação Implícita (Breakeven)")
         df_breakeven = calcular_inflacao_implicita(df_tesouro)
         if not df_breakeven.empty:
@@ -66,24 +67,31 @@ if not df_tesouro.empty:
             st.plotly_chart(fig_breakeven, use_container_width=True)
         else:
             st.warning("Não há pares de títulos para calcular a inflação implícita hoje.")
-    with bottom_right:
+            
+    with col2:
+        st.subheader("Juro Real de 10 Anos (NTN-B)")
+        df_juro_br = calcular_juro_10a_br(df_tesouro)
+        if not df_juro_br.empty:
+            fig_juro_10a = gerar_grafico_juro_10a_br(df_juro_br)
+            st.plotly_chart(fig_juro_10a, use_container_width=True, config={'modeBarButtonsToRemove': ['autoscale']})
+        else:
+            st.warning("Não foi possível calcular a série de juros de 10 anos.")
+
+    with col3:
         st.subheader("Spread de Juros: Brasil vs. EUA")
         st.info("Diferença entre a taxa da NTN-B de ~10 anos e o título americano de 10 anos.")
-        
-        # Em pages/6_Internacional.py e pages/1_NTN-Bs.py
         
         FRED_API_KEY = st.secrets.get("FRED_API_KEY")
         
         if not FRED_API_KEY:
             st.error("Chave da API do FRED não configurada. Por favor, configure o secret 'FRED_API_KEY'.")
-            st.stop() # Impede a execução do resto da página
+            st.stop()
         
-        # O restante do código que usa a chave...        
         df_fred_br_tab = carregar_dados_fred(FRED_API_KEY, {'DGS10': 'Juros 10 Anos EUA'})
         if not df_fred_br_tab.empty:
-            df_juro_br = calcular_juro_10a_br(df_tesouro)
-            if not df_juro_br.empty:
-                fig_spread_br_eua = gerar_grafico_spread_br_eua(df_juro_br, df_fred_br_tab)
+            df_juro_br_spread = calcular_juro_10a_br(df_tesouro)
+            if not df_juro_br_spread.empty:
+                fig_spread_br_eua = gerar_grafico_spread_br_eua(df_juro_br_spread, df_fred_br_tab)
                 st.plotly_chart(fig_spread_br_eua, use_container_width=True, config={'modeBarButtonsToRemove': ['autoscale']})
             else:
                 st.warning("Não foi possível calcular a série de juros de 10 anos para o Brasil.")
