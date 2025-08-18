@@ -19,7 +19,7 @@ def obter_dados_tesouro():
         return pd.DataFrame()
 
 @st.cache_data
-def calcular_juro_10a_br(df_tesouro):
+def calcular_juro_real_10a_br(df_tesouro):
     df_ntnb = df_tesouro[df_tesouro['Tipo Titulo'] == 'Tesouro IPCA+ com Juros Semestrais'].copy()
     if df_ntnb.empty: return pd.Series(dtype=float)
     resultados = {}
@@ -31,6 +31,30 @@ def calcular_juro_10a_br(df_tesouro):
             venc_10y = min(vencimentos_do_dia, key=lambda d: abs(d - target_10y))
             taxa = df_dia[df_dia['Data Vencimento'] == venc_10y]['Taxa Compra Manha'].iloc[0]
             resultados[data_base] = taxa
+    return pd.Series(resultados).sort_index()
+
+@st.cache_data
+def calcular_juro_prefixado_10a_br(df_tesouro):
+    """Calcula a série histórica do juro prefixado para o vencimento mais próximo de 10 anos."""
+    df_prefixado = df_tesouro[df_tesouro['Tipo Titulo'] == 'Tesouro Prefixado'].copy()
+    if df_prefixado.empty: return pd.Series(dtype=float)
+    
+    resultados = {}
+    datas_base = df_prefixado['Data Base'].unique()
+    
+    for data_base in datas_base:
+        df_dia = df_prefixado[df_prefixado['Data Base'] == data_base]
+        vencimentos_do_dia = df_dia['Data Vencimento'].unique()
+        
+        if len(vencimentos_do_dia) > 0:
+            target_10y = pd.to_datetime(data_base) + pd.DateOffset(years=10)
+            
+            # Encontra o vencimento mais próximo de 10 anos
+            venc_10y_proximo = min(vencimentos_do_dia, key=lambda d: abs(d - target_10y))
+            
+            taxa = df_dia[df_dia['Data Vencimento'] == venc_10y_proximo]['Taxa Compra Manha'].iloc[0]
+            resultados[data_base] = taxa
+            
     return pd.Series(resultados).sort_index()
 
 def gerar_grafico_ntnb_multiplos_vencimentos(df_ntnb_all, vencimentos, metrica):
@@ -127,12 +151,46 @@ def gerar_grafico_ettj_longo_prazo(df):
     fig.update_layout(title_text='Curva de Juros (ETTJ) - Longo Prazo (Comparativo Histórico)', title_x=0, xaxis_title='Dias Úteis até o Vencimento', yaxis_title='Taxa (% a.a.)', template='plotly_dark', legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
     return fig
 
-def gerar_grafico_juro_10a_br(series_juro_10a):
+def gerar_grafico_juro_real_10a_br(series_juro_10a):
     """Gera um gráfico de linha para a série de juros de 10 anos do Brasil."""
     if series_juro_10a.empty:
         return go.Figure().update_layout(title_text="Dados para o juro de 10 anos não encontrados.")
     
     fig = px.line(series_juro_10a, title='Juro Real de 10 Anos (NTN-B)', template='plotly_dark')
+    
+    end_date = series_juro_10a.index.max()
+    buttons = []
+    periods = {'6M': 182, '1A': 365, '2A': 730, '5A': 1825, '10A': 3650, 'Máx': 'max'}
+    
+    for label, days in periods.items():
+        start_date = series_juro_10a.index.min() if days == 'max' else end_date - pd.Timedelta(days=days)
+        buttons.append(dict(method='relayout', label=label, args=[{'xaxis.range': [start_date, end_date], 'yaxis.autorange': True}]))
+    
+    fig.update_layout(
+        title_x=0, 
+        yaxis_title="Taxa (% a.a.)", 
+        xaxis_title="Data", 
+        showlegend=False,
+        updatemenus=[dict(type="buttons", direction="right", showactive=True, x=1, xanchor="right", y=1.05, yanchor="bottom", buttons=buttons)]
+    )
+    
+    start_date_1y = end_date - pd.Timedelta(days=365)
+    fig.update_xaxes(range=[start_date_1y, end_date])
+
+    filtered_series = series_juro_10a.loc[start_date_1y:end_date].dropna()
+    if not filtered_series.empty:
+        min_y, max_y = filtered_series.min(), filtered_series.max()
+        padding = (max_y - min_y) * 0.10 if (max_y - min_y) > 0 else 0.5
+        fig.update_yaxes(range=[min_y - padding, max_y + padding])
+
+    return fig
+
+def gerar_grafico_juro_prefixado_10a_br(series_juro_10a):
+    """Gera um gráfico de linha para a série de juros prefixados de 10 anos do Brasil."""
+    if series_juro_10a.empty:
+        return go.Figure().update_layout(title_text="Dados para o juro prefixado de 10 anos não encontrados.")
+    
+    fig = px.line(series_juro_10a, title='Juro Prefixado de 10 Anos (LTN/NTN-F)', template='plotly_dark')
     
     end_date = series_juro_10a.index.max()
     buttons = []
