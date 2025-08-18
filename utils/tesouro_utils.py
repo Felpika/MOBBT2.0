@@ -126,3 +126,37 @@ def gerar_grafico_ettj_longo_prazo(df):
         fig.add_trace(go.Scatter(x=df_data['Dias Uteis'], y=df_data['Taxa Compra Manha'], mode='lines+markers', name=legenda, line=line_style))
     fig.update_layout(title_text='Curva de Juros (ETTJ) - Longo Prazo (Comparativo Histórico)', title_x=0, xaxis_title='Dias Úteis até o Vencimento', yaxis_title='Taxa (% a.a.)', template='plotly_dark', legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
     return fig
+
+def gerar_grafico_juro_10a_br(series_juro_10a):
+    """Gera um gráfico de linha para a série de juros de 10 anos do Brasil."""
+    if series_juro_10a.empty:
+        return go.Figure().update_layout(title_text="Dados para o juro de 10 anos não encontrados.")
+    
+    fig = px.line(series_juro_10a, title='Juro Real de 10 Anos (NTN-B)', template='plotly_dark')
+    
+    end_date = series_juro_10a.index.max()
+    buttons = []
+    periods = {'6M': 182, '1A': 365, '2A': 730, '5A': 1825, '10A': 3650, 'Máx': 'max'}
+    
+    for label, days in periods.items():
+        start_date = series_juro_10a.index.min() if days == 'max' else end_date - pd.Timedelta(days=days)
+        buttons.append(dict(method='relayout', label=label, args=[{'xaxis.range': [start_date, end_date], 'yaxis.autorange': True}]))
+    
+    fig.update_layout(
+        title_x=0, 
+        yaxis_title="Taxa (% a.a.)", 
+        xaxis_title="Data", 
+        showlegend=False,
+        updatemenus=[dict(type="buttons", direction="right", showactive=True, x=1, xanchor="right", y=1.05, yanchor="bottom", buttons=buttons)]
+    )
+    
+    start_date_1y = end_date - pd.Timedelta(days=365)
+    fig.update_xaxes(range=[start_date_1y, end_date])
+
+    filtered_series = series_juro_10a.loc[start_date_1y:end_date].dropna()
+    if not filtered_series.empty:
+        min_y, max_y = filtered_series.min(), filtered_series.max()
+        padding = (max_y - min_y) * 0.10 if (max_y - min_y) > 0 else 0.5
+        fig.update_yaxes(range=[min_y - padding, max_y + padding])
+
+    return fig
