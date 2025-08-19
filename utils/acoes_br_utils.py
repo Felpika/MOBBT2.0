@@ -176,18 +176,60 @@ def obter_tickers_cvm_amplitude():
 
 @st.cache_data(ttl=86400)
 def obter_precos_historicos_amplitude(tickers, anos_historico=15):
-    st.info(f"Buscando {anos_historico} anos de dados de preços para {len(tickers)} ativos... (Pode ser MUITO lento na primeira execução do dia)")
+    """
+    Baixa os dados históricos de preços usando yfinance e o cache do Streamlit,
+    agora com download em lotes para maior robustez.
+    """
+    st.info(f"Buscando {anos_historico} anos de dados de preços para {len(tickers)} ativos...")
+    st.warning("Este processo é lento e pode levar vários minutos na primeira execução do dia. Por favor, aguarde.")
+    
     tickers_sa = [ticker + ".SA" for ticker in tickers]
     data_final = datetime.now()
     data_inicial = data_final - timedelta(days=anos_historico*365)
-    dados_completos = yf.download(tickers=tickers_sa, start=data_inicial, end=data_final, auto_adjust=True, progress=False)
-    if not dados_completos.empty:
-        precos_fechamento = dados_completos['Close'].astype('float32')
-        st.success("Download dos dados de preços concluído.")
-        return precos_fechamento
-    else:
-        st.error("ERRO: Falha no download dos dados de preços.")
+    
+    # Lógica de download em lotes
+    batch_size = 100
+    all_close_prices = []
+    progress_text = "Baixando dados de preços em lotes..."
+    progress_bar = st.progress(0, text=progress_text)
+    total_batches = (len(tickers_sa) + batch_size - 1) // batch_size
+    
+    for i, n in enumerate(range(0, len(tickers_sa), batch_size)):
+        batch = tickers_sa[n:n+batch_size]
+        try:
+            data = yf.download(
+                batch,
+                start=data_inicial,
+                end=data_final,
+                auto_adjust=True,
+                progress=False,
+                threads=True
+            )
+            if not data.empty:
+                if isinstance(data.columns, pd.MultiIndex):
+                    close_prices = data['Close']
+                else:
+                    if 'Close' in data.columns:
+                        close_prices = data[['Close']].rename(columns={'Close': batch[0]})
+                    else:
+                        close_prices = data
+                all_close_prices.append(close_prices)
+        except Exception as e:
+            st.warning(f"Falha ao baixar o lote {i+1}/{total_batches}. Erro: {e}")
+
+        progress_bar.progress((i + 1) / total_batches, text=f"Lote {i+1} de {total_batches} baixado.")
+
+    progress_bar.empty()
+
+    if not all_close_prices:
+        st.error("ERRO: Falha total no download dos dados de preços. Verifique a conexão ou tente mais tarde.")
         return pd.DataFrame()
+        
+    full_df = pd.concat(all_close_prices, axis=1)
+    full_df = full_df.loc[:,~full_df.columns.duplicated()]
+    
+    st.success(f"Download de dados para {full_df.shape[1]} ativos concluído.")
+    return full_df.astype('float32')
 
 @st.cache_data(ttl=86400)
 def calcular_dados_amplitude(precos_fechamento):
